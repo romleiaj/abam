@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "abam"
+version = "0.1.0"
+description = "Various python utilites for personal use"
+authors = ["Adam Romlein"]
+license = "MIT License"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.10, <4.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
