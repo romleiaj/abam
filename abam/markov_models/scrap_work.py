@@ -1,8 +1,7 @@
 import numpy as np
 from functools import reduce
 
-k = 6 
-dice = [6] # sides to the dice
+k = 8 
 board_height = 10
 board_width = 10
 N = board_width * board_height
@@ -74,3 +73,75 @@ N = np.linalg.inv(I - Q)
 # This mean to find the expected value to get to a specific state, sum that
 # transition states
 print(np.sum(N[start_state:(final_state + 1), start_state]))
+
+
+# now say we have 2 dice, a d6 and a d8, and can choose between each die
+# on each roll. How do we determine an optimal roll at any particular 
+# state?
+
+# To do this, we need to define a `policy`, which tells us what policy
+# to select that maximizes the `reward`, in this case something we define
+# that brings us closer to our goal (reaching the absorption state, square 0)
+
+# Since we can calculate the number of step left to the end with the above
+# formula, it intuitively makes sense that we want to optimize for that.
+# Naively, then, I think 2 transition matrices need to be created, and then
+# the die should be selected such that the state most likely to land in 
+# has least number of expected turns to the end.
+
+# So, reward when E[s,n] goes down, penalize when E[s,n] goes up, where s is your 
+# current state, n is the absorption state.
+
+# Using https://www.cs.cmu.edu/afs/cs/academic/class/15780-s16/www/slides/mdps.pdf
+# as a guide.
+
+# ??? something I need, to be determined what this actually is
+discount_factor = 0.9
+# Reward values, maps each state to a reward value
+R = np.zeros(N-1)
+# Only one absorption state, so set that as the max reward?
+R[-1] = 100.
+# Should probably set something for chutes and ladders too
+for cl in chutes_ladders: 
+    if cl[1] > cl[0]: # ladder
+        R[cl[0]] = 1
+    else: # chute
+        R[cl[0]] = -1
+
+# Transition matrix P is now supposed to define the probability
+# distribution over the next states given the current state
+# _and_ the current action.
+# so:
+# for i in actions:
+#   for j in N:
+#       for k in N:
+#           P[k, j, i] = transition_function(k, i) 
+#           etc...
+
+# Now let's (try) to use Bellman's optimality equation!
+# We need a value function for a policy, which gives
+# the expected sum of discounted rewards under that policy.
+# So in our case, with 2 dice, we need 2 value functions.
+
+# I'll explicitly defined our 2 value functions as V6 and V8,
+# Vpi for the general case.
+# Vpi(current_state) = Reward(current_state) + discount_factor * \
+#                             sum(P[next_state, :]*Vpi[next_state,:])
+# Let vpi be a vector of values for each state, r be a vector of 
+# rewards for each state. Ppi is what we've traditionally had, the 
+# transition values for each function. l is the discount factor.
+# Bellman equation in vector form is thus:
+# vpi = r + l*Ppi*vpi
+# algebra....
+# vpi = (I - l*Ppi)^-1 * r
+# AH-HAH! I've seen this before. That's N with a different pair of shoes.
+
+Q = P[:(N - 1), :(N - 1)]
+I = np.identity(N - 1)
+# N is the fundamental matrix for P
+vpi = np.linalg.inv(I - Q*discount_factor) * R
+
+Vpi = np.zeros((N-1, N-1))
+# 1. initialize an estimate for the value function randomly
+
+# Vpi(current_state) = np.linalg.inv(I - Q*discount_factor)[current_state] * R[current_state]
