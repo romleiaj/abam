@@ -5,9 +5,8 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from typing import Iterable, Dict, List
 from pydantic import BaseModel, PositiveInt
-from functools import reduce
 
-# Question: What is the optimal die to roll at any give square?
+# Question: What is the optimal die to roll at any given square?
 
 class ChutesAndLadders(BaseModel):
     actions: List[int]
@@ -103,20 +102,22 @@ class ChutesAndLadders(BaseModel):
                 visible[i] = self.chutes_ladders[state]
         return visible
 
-    def get_transition_matrix(self) -> NDArray[np.float_]:
+    def get_transition_matrix(self, policy: Dict) -> NDArray[np.float_]:
         """Calculate and return the transition matrix.
+
+        Args:
+            policy (Dict): Mapping of state to action.
         
         Returns:
             NDArray[np.float_]: Transition probabilities for every state.
         """
-        # transition matrix (mxNxN of zeros)
-        Pa = np.zeros((len(self.actions), self.num_states, self.num_states)) 
-        for i, die in enumerate(self.actions):
+        # transition matrix (NxN of zeros)
+        Pa = np.zeros((self.num_states, self.num_states)) 
+        for i in range(self.num_states):
             for j in range(self.num_states):
-                for k in range(self.num_states):
-                    # iterate through columns first
-                    Pa[i, j, k] = self.transition_function(k, j,
-                                                          action=die)
+                # iterate through columns first
+                Pa[i, j] = self.transition_function(j, i,
+                                                    action=policy[j])
         return Pa
 
     def get_expected_number_of_turns(self,
@@ -202,7 +203,6 @@ class ChutesAndLadders(BaseModel):
             to action, and the final loss for analyzing the error.
         """
         V = np.zeros(self.num_states) # values for each state
-        pi = None
         it = 0
         max_it = 1000
         while it < max_it:
@@ -226,10 +226,11 @@ class ChutesAndLadders(BaseModel):
         # Now that we have our final converged value matrix, we run it 
         # through Bellman's once last time to get the final mapping from
         # state to action.
-        pi = np.zeros(self.num_states)
+        pi = dict()
         for state in range(self.num_states):
             if state == self.num_states - 1:
-                pi[state] = None
+                # odd corner case, 0 sided die?
+                pi[state] = 0
             else:
                 pi[state] = max((self.bellmans(state, action, V), action)
                                 for action in self.actions)[1]
@@ -256,7 +257,15 @@ if __name__ == "__main__":
                            chutes_ladders=chutes_ladders,
                            num_states=num_states,
                            discount_factor=discount_factor)
-    pi, loss = CaL.value_iteration()
-    # being explicit about pi's functionality
-    state_to_action = pi
-    print(pi)
+    optimal_pi, loss = CaL.value_iteration()
+
+    # Now we can get a transition matrix under this optimal policy
+    # pi, and reduce this back into a classic markov model.
+    P = CaL.get_transition_matrix(optimal_pi)
+    is_valid = CaL.is_valid_transition_matrix(P)
+    print(f"Valid transition matrix? {is_valid}")
+    
+    s = 0
+    e = 100
+    n = CaL.get_expected_number_of_turns(P, s, e)
+    print(f"Expected number of turns from {s} to {e}: {n:.3f}")
